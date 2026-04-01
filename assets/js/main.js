@@ -69,7 +69,7 @@
         clearTimeout(timer);
         sessionStorage.setItem('secretUnlocked', '1');
         showSecretTab();
-        window.location.href = '/secret/';
+        window.location.href = new URL('../secret/', window.location.href).toString();
         return;
       }
 
