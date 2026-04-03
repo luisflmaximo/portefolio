@@ -224,6 +224,7 @@
   isolation: isolate;
   min-height: 168px;
   cursor: pointer;
+  transition: box-shadow 0.32s cubic-bezier(0.22, 1, 0.36, 1), transform 0.32s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.28s ease;
 }
 .card::after {
   content: '';
@@ -232,7 +233,7 @@
   border-radius: inherit;
   border: 2px solid var(--accent);
   opacity: 0;
-  transition: opacity 0.18s;
+  transition: opacity 0.28s ease;
   pointer-events: none;
 }
 .card:hover {
@@ -245,6 +246,7 @@
   z-index: 12;
   box-shadow: var(--shadow-lg);
   border-color: var(--accent-light);
+  transform: translateY(-1px);
 }
 .card.card-open::after { opacity: 0.35; }
 .card-link:focus-visible {
@@ -307,7 +309,7 @@
   -webkit-box-orient: initial;
   max-height: var(--card-desc-collapsed-height, 4.7em);
   overflow: hidden;
-  transition: max-height 0.34s cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 0.24s ease;
+  transition: max-height 0.48s cubic-bezier(0.22, 1, 0.36, 1), margin-bottom 0.32s cubic-bezier(0.22, 1, 0.36, 1);
   will-change: max-height;
 }
 
@@ -336,7 +338,7 @@
 .card.card-has-reveal .card-foot {
   border-top: 1px solid transparent;
   padding-top: 0;
-  transition: padding-top 0.24s ease, border-color 0.24s ease;
+  transition: padding-top 0.32s cubic-bezier(0.22, 1, 0.36, 1), border-color 0.24s ease;
 }
 
 .card.card-open .card-foot,

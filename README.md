@@ -1,4 +1,4 @@
-﻿# LuÃ­s MÃ¡ximo â€” Portfolio Site
+# LuÃ­s MÃ¡ximo â€” Portfolio Site
 
 Site pessoal de portefÃ³lio e currÃ­culo, construÃ­do em HTML/CSS/JS puro, desenhado para funcionar no GitHub Pages.
 
@@ -56,7 +56,7 @@ portfolio/
 ### Passo 4 â€” Aceder ao site
 ApÃ³s 1-2 minutos, o teu site estarÃ¡ disponÃ­vel em:
 ```
-https://luisflmaixmo.github.io/portefolio
+https://luisflmaximo.github.io/portefolio
 ```
 (com o teu username real)
 

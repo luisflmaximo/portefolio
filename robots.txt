@@ -1,6 +1,6 @@
-﻿User-agent: *
+User-agent: *
 Allow: /
 Disallow: /secret/
 
-Sitemap: https://luisflmaixmo.github.io/portefolio/sitemap.xml
+Sitemap: https://luisflmaximo.github.io/portefolio/sitemap.xml
 
