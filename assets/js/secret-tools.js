@@ -20,6 +20,7 @@
       },
       pageLabel: 'Área Privada',
       pageTitle: 'Ferramentas',
+      aiButtonText: 'Perguntar à IA',
       pageDesc(totalCount) {
         if (typeof totalCount !== 'number') {
           return 'Recursos organizados por categoria. Usa a pesquisa ou os filtros para encontrar o que precisas.';
@@ -41,6 +42,7 @@
       },
       pageLabel: 'Private Area',
       pageTitle: 'Tools',
+      aiButtonText: 'Ask AI',
       pageDesc(totalCount) {
         if (typeof totalCount !== 'number') {
           return 'Resources organized by category. Use search or filters to find what you need.';
@@ -69,6 +71,7 @@
     navCurriculum: document.getElementById('scNavCurriculum'),
     navTools: document.getElementById('scNavTools'),
     footerCopy: document.getElementById('scFooterCopy'),
+    aiFabText: document.querySelector('.secret-ai__fab-text'),
     langPt: document.getElementById('scLangPt'),
     langEn: document.getElementById('scLangEn'),
     burger: document.getElementById('navBurger'),
@@ -149,6 +152,7 @@
     if (refs.pageTitle) refs.pageTitle.textContent = copy.pageTitle;
     if (refs.pageDesc) refs.pageDesc.textContent = copy.pageDesc(state.totalCount);
     if (refs.footerCopy) refs.footerCopy.textContent = copy.footerCopy;
+    if (refs.aiFabText) refs.aiFabText.textContent = copy.aiButtonText;
 
     if (refs.langPt) {
       refs.langPt.classList.toggle('nav__lang-btn--active', state.locale === 'pt');
