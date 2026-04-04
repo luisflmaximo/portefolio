@@ -674,7 +674,7 @@
   }
 
   function syncSubFilterWidth() {
-    if (!refs.subFilters || refs.subFilters.style.display === 'none') {
+    if (!refs.subFilters || !refs.subFilters.classList.contains('sub-bar--visible')) {
       if (refs.subFilters) refs.subFilters.style.maxWidth = '';
       return;
     }
@@ -839,7 +839,7 @@
     state.filterSec = 'all';
 
     if (catId === 'all' || !state.categoryMap[catId]) {
-      refs.subFilters.style.display = 'none';
+      refs.subFilters.classList.remove('sub-bar--visible');
       refs.subFilters.style.maxWidth = '';
       return;
     }
@@ -851,7 +851,7 @@
     });
 
     refs.subFilters.innerHTML = fragments.join('');
-    refs.subFilters.style.display = 'flex';
+    refs.subFilters.classList.add('sub-bar--visible');
     syncSubFilterWidth();
   }
 

@@ -96,7 +96,7 @@
 
 /* ── Sub-filter bar ──────────────────────────────────────────────── */
 .sub-bar {
-  display: flex;
+  display: none;
   flex-wrap: wrap;
   justify-content: center;
   gap: 0.3rem;
@@ -108,6 +108,7 @@
   border: 1px solid var(--border-light);
   border-radius: var(--radius);
 }
+.sub-bar--visible { display: flex; }
 .sub-bar .filter-btn {
   font-size: 0.67rem;
   padding: 0.22rem 0.7rem;
@@ -298,6 +299,7 @@
   margin-bottom: 0.55rem;
   display: -webkit-box;
   -webkit-line-clamp: 4;
+  line-clamp: 4;
   -webkit-box-orient: vertical;
   overflow: hidden;
   overflow-wrap: anywhere;
@@ -306,6 +308,7 @@
 .card.card-has-reveal .card-desc {
   display: block;
   -webkit-line-clamp: unset;
+  line-clamp: none;
   -webkit-box-orient: initial;
   max-height: var(--card-desc-collapsed-height, 4.7em);
   overflow: hidden;
@@ -824,6 +827,7 @@
   color: var(--text);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
@@ -860,6 +864,7 @@
   color: var(--text-muted);
   display: -webkit-box;
   -webkit-line-clamp: 2;
+  line-clamp: 2;
   -webkit-box-orient: vertical;
   overflow: hidden;
 }
