@@ -91,11 +91,24 @@
       var img = document.createElement('img');
       var pageNumber = String(i).padStart(3, '0');
       figure.className = 'protected-viewer__page';
-      img.src = 'superbock-pages/page-' + pageNumber + '.webp';
+      
       img.alt = '';
       img.loading = i <= 2 ? 'eager' : 'lazy';
       img.decoding = 'async';
       img.draggable = false;
+      
+      img.onload = function () {
+        this.classList.add('loaded');
+        this.parentElement.classList.add('loaded');
+      };
+      
+      img.src = 'superbock-pages/page-' + pageNumber + '.webp';
+      
+      if (img.complete) {
+        img.classList.add('loaded');
+        figure.classList.add('loaded');
+      }
+      
       figure.appendChild(img);
       pages.appendChild(figure);
     }

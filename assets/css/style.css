@@ -39,6 +39,24 @@
 
 html { scroll-behavior: smooth; font-size: 16px; }
 
+/* ── Custom Scrollbar (Premium Theme Style) ── */
+::-webkit-scrollbar {
+  width: 10px;
+  height: 10px;
+}
+::-webkit-scrollbar-track {
+  background: var(--bg);
+}
+::-webkit-scrollbar-thumb {
+  background: var(--text-light);
+  border-radius: var(--radius);
+  border: 2.5px solid var(--bg);
+  transition: background var(--transition);
+}
+::-webkit-scrollbar-thumb:hover {
+  background: var(--accent-mid);
+}
+
 body {
   font-family: var(--font-body);
   background-color: var(--bg);
@@ -914,6 +932,27 @@ select:focus-visible,
   border-radius: var(--radius);
   background: var(--surface);
   box-shadow: var(--shadow-sm);
+  position: relative;
+  aspect-ratio: 983 / 1390;
+}
+/* Shimmer loader animation */
+@keyframes viewerShimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.protected-viewer__page::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: linear-gradient(90deg, var(--surface-2) 25%, var(--border-light) 50%, var(--surface-2) 75%);
+  background-size: 200% 100%;
+  animation: viewerShimmer 1.5s infinite linear;
+  z-index: 1;
+  transition: opacity 0.4s ease;
+}
+.protected-viewer__page.loaded::before {
+  opacity: 0;
+  pointer-events: none;
 }
 .protected-viewer__page img {
   width: 100%;
@@ -921,6 +960,13 @@ select:focus-visible,
   pointer-events: none;
   -webkit-user-select: none;
   user-select: none;
+  opacity: 0;
+  transition: opacity 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  position: relative;
+  z-index: 2;
+}
+.protected-viewer__page img.loaded {
+  opacity: 1;
 }
 .protected-viewer__print-message {
   display: none;
@@ -1483,6 +1529,28 @@ select:focus-visible,
     opacity: 1 !important;
     transform: none !important;
   }
+}
+
+/* ── Project Warning Box (English page only) ── */
+.project-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  padding: 0.65rem 0.85rem;
+  border-radius: var(--radius);
+  background: #FDF9F2;
+  border: 1px solid #F0DDB3;
+  color: #B45309;
+  font-size: 0.78rem;
+  line-height: 1.4;
+  margin-bottom: 1.25rem;
+}
+.project-warning svg {
+  width: 14px;
+  height: 14px;
+  color: #D97706;
+  flex-shrink: 0;
+  margin-top: 2px;
 }
 
 /* ================================================================
