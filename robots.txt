@@ -1,6 +1,6 @@
 User-agent: *
 Allow: /
 Disallow: /secret/
+Disallow: /cloudflare/
 
 Sitemap: https://luisflmaximo.github.io/portefolio/sitemap.xml
-
