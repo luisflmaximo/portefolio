@@ -22,6 +22,21 @@ export default {
       return jsonResponse({ error: 'Not found.' }, 404, corsOrigin);
     }
 
+    if (url.pathname === '/diagnose') {
+      const key = env.GEMINI_API_KEY || '';
+      const diagnostics = {
+        hasKey: !!key,
+        length: key.length,
+        prefix: key.slice(0, 8),
+        suffix: key.slice(-4),
+        charCodeFirst: key.length ? key.charCodeAt(0) : null,
+        charCodeLast: key.length ? key.charCodeAt(key.length - 1) : null,
+        model: env.GROQ_MODEL || 'default',
+        visionModel: env.GROQ_VISION_MODEL || 'default',
+      };
+      return jsonResponse(diagnostics, 200, corsOrigin);
+    }
+
     if (origin && !corsOrigin) {
       return jsonResponse({ error: 'Origin not allowed.' }, 403, '');
     }
@@ -58,7 +73,7 @@ export default {
 };
 
 function isAllowedRoute(pathname) {
-  return pathname === '/' || pathname === '/recommend';
+  return pathname === '/' || pathname === '/recommend' || pathname === '/diagnose';
 }
 
 function getCorsOrigin(origin, env) {
