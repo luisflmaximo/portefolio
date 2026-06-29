@@ -1571,6 +1571,77 @@
     }
   }
 
+  function isImageResult(result) {
+    const url = result.url || result.href || '';
+    const name = result.name || '';
+    return /\.(jpg|jpeg|png|webp|gif|svg|bmp)(\?|#|$)/i.test(url) || 
+           /\.(jpg|jpeg|png|webp|gif|svg|bmp)$/i.test(name) ||
+           (result.meta && result.meta.toLowerCase().includes('imagem')) ||
+           (result.meta && result.meta.toLowerCase().includes('image'));
+  }
+
+  window.copyTextToClipboard = function(text) {
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(text).then(function() {
+        alert('Link copiado para a área de transferência!');
+      }).catch(function(err) {
+        console.error('Erro ao copiar link:', err);
+      });
+    } else {
+      const textarea = document.createElement('textarea');
+      textarea.value = text;
+      textarea.style.position = 'fixed';
+      document.body.appendChild(textarea);
+      textarea.select();
+      try {
+        document.execCommand('copy');
+        alert('Link copiado para a área de transferência!');
+      } catch (err) {
+        console.error('Erro ao copiar link:', err);
+      }
+      document.body.removeChild(textarea);
+    }
+  };
+
+  window.copyImageToClipboard = async function(imageUrl) {
+    try {
+      const res = await fetch(imageUrl);
+      if (!res.ok) throw new Error('Status ' + res.status);
+      const blob = await res.blob();
+      
+      let pngBlob = blob;
+      if (blob.type !== 'image/png') {
+        pngBlob = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.crossOrigin = 'anonymous';
+          img.onload = () => {
+            const canvas = document.createElement('canvas');
+            canvas.width = img.naturalWidth;
+            canvas.height = img.naturalHeight;
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(img, 0, 0);
+            canvas.toBlob((b) => {
+              if (b) resolve(b);
+              else reject(new Error('Erro na conversão para PNG'));
+            }, 'image/png');
+          };
+          img.onerror = () => reject(new Error('Erro ao carregar imagem para conversão'));
+          img.src = imageUrl;
+        });
+      }
+      
+      await navigator.clipboard.write([
+        new ClipboardItem({
+          [pngBlob.type]: pngBlob
+        })
+      ]);
+      alert('Imagem copiada para a área de transferência!');
+    } catch (err) {
+      console.warn('Não foi possível copiar a imagem programaticamente (CORS ou restrição do navegador).', err);
+      alert('Não foi possível copiar a imagem automaticamente devido a restrições de segurança do navegador ou do site original.\n\nDica: Clique com o botão direito do rato (ou mantenha pressionado) sobre a pré-visualização da imagem e selecione "Copiar imagem".');
+    }
+  };
+
   function renderResults() {
     if (!refs.resultsList) return;
     if (!state.results.length) {
@@ -1584,15 +1655,38 @@
     }
 
     refs.resultsList.innerHTML = state.results.map(function (result, index) {
-      const actions = (result.blob || result.download)
-        ? '<a class="result-link" href="' + (result.url || escapeHtml(result.href)) + '" download="' + escapeHtml(result.name) + '">Descarregar</a>'
-        : '<a class="result-link" href="' + escapeHtml(result.href) + '" target="_blank" rel="noopener">Abrir</a>';
+      const targetUrl = result.url || result.href;
+      
+      let actions = '';
+      if (result.blob || result.download) {
+        actions += '<a class="result-link" href="' + (result.url || escapeHtml(result.href)) + '" download="' + escapeHtml(result.name) + '">Descarregar</a>';
+      } else {
+        actions += '<a class="result-link" href="' + escapeHtml(result.href) + '" target="_blank" rel="noopener">Abrir</a>';
+      }
+
+      if (targetUrl) {
+        actions += '<button type="button" class="result-link" style="margin-left: 0.25rem;" onclick="window.copyTextToClipboard(\'' + escapeHtml(targetUrl) + '\')">Copiar Link</button>';
+        if (isImageResult(result)) {
+          actions += '<button type="button" class="result-link" style="margin-left: 0.25rem;" onclick="window.copyImageToClipboard(\'' + escapeHtml(targetUrl) + '\')">Copiar Imagem</button>';
+        }
+      }
+
+      let previewHtml = '';
+      if (isImageResult(result) && targetUrl) {
+        previewHtml = [
+          '<div class="result-item__preview" style="margin-top: 0.6rem;">',
+          '<img src="' + escapeHtml(targetUrl) + '" alt="' + escapeHtml(result.name) + '" style="max-width: 140px; max-height: 140px; border-radius: var(--radius); display: block; border: 1px solid var(--border); cursor: pointer;" onclick="window.open(\'' + escapeHtml(targetUrl) + '\', \'_blank\')" title="Clique para ampliar. Dica: Clique com o botão direito para copiar/guardar." />',
+          '<span style="font-size: 0.68rem; color: var(--text-light); display: block; margin-top: 0.25rem; opacity: 0.85;">Dica: Clique com o botão direito na imagem para copiar diretamente.</span>',
+          '</div>'
+        ].join('');
+      }
 
       return [
         '<article class="result-item">',
         '<div>',
         '<div class="result-item__name">' + escapeHtml(result.name) + '</div>',
         '<div class="result-item__meta">' + escapeHtml(result.meta || (result.blob ? formatBytes(result.blob.size) : 'Ligação externa')) + '</div>',
+        previewHtml,
         '</div>',
         '<div class="result-item__actions">',
         actions,
@@ -3350,6 +3444,41 @@
     }
   }
 
+  async function extractInstagramViaDdInstagram(url) {
+    let cleanUrl = url;
+    if (cleanUrl.includes('instagram.com')) {
+      cleanUrl = cleanUrl.replace('instagram.com', 'ddinstagram.com').replace('www.', '');
+    }
+    
+    const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(cleanUrl);
+    const response = await fetch(proxyUrl);
+    if (!response.ok) {
+      throw new Error('CORS proxy returned status ' + response.status);
+    }
+    const data = await response.json();
+    if (!data || !data.contents) {
+      throw new Error('No contents from CORS proxy');
+    }
+    
+    const parser = new DOMParser();
+    const doc = parser.parseFromString(data.contents, 'text/html');
+    
+    const ogImageMeta = doc.querySelector('meta[property="og:image"]') || doc.querySelector('meta[name="twitter:image"]');
+    const ogVideoMeta = doc.querySelector('meta[property="og:video"]') || doc.querySelector('meta[name="twitter:player"]');
+    
+    const imageUrl = ogImageMeta ? ogImageMeta.getAttribute('content') : null;
+    const videoUrl = ogVideoMeta ? ogVideoMeta.getAttribute('content') : null;
+    
+    if (!imageUrl && !videoUrl) {
+      throw new Error('No media metadata found in ddinstagram');
+    }
+    
+    return {
+      imageUrl: imageUrl,
+      videoUrl: videoUrl
+    };
+  }
+
   async function processLinkHelper(urls, options) {
     const mode = String(options.linkMode || 'auto');
     const quality = String(options.linkQuality || '720');
@@ -3625,6 +3754,37 @@
         }
       }
 
+      // DIRECT INSTAGRAM EXTRACTION FALLBACK
+      if (!success && url.indexOf('instagram.com') !== -1) {
+        try {
+          setProgress(
+            (index / validUrls.length) * 100,
+            'A processar link',
+            url + ' (tentando extração direta...)'
+          );
+          const media = await extractInstagramViaDdInstagram(url);
+          if (media.videoUrl) {
+            results.push({
+              name: 'instagram-video-' + (index + 1) + '.mp4',
+              href: media.videoUrl,
+              download: true,
+              meta: 'Instagram Downloader (Direct Video)'
+            });
+            success = true;
+          } else if (media.imageUrl) {
+            results.push({
+              name: 'instagram-image-' + (index + 1) + '.jpg',
+              href: media.imageUrl,
+              download: true,
+              meta: 'Instagram Downloader (Direct Image)'
+            });
+            success = true;
+          }
+        } catch (err) {
+          console.warn('Direct ddinstagram extraction failed:', err);
+        }
+      }
+
       // DOMAIN-SPECIFIC FALLBACK EXTERNAL REDIRECTS (NON-COBALT OPTION)
       if (!success) {
         let fallbackUrl = '';
@@ -3634,7 +3794,7 @@
           fallbackUrl = 'https://en.savefrom.net/?url=' + encodeURIComponent(url);
           serviceName = 'SaveFrom.net (YouTube)';
         } else if (url.indexOf('instagram.com') !== -1) {
-          fallbackUrl = 'https://snapinsta.app/?url=' + encodeURIComponent(url);
+          fallbackUrl = 'https://snapinsta.to/?url=' + encodeURIComponent(url);
           serviceName = 'SnapInsta (Instagram)';
         } else if (url.indexOf('tiktok.com') !== -1) {
           fallbackUrl = 'https://snaptik.app/';
@@ -3659,7 +3819,7 @@
       const h = item.href;
       return h.indexOf('cobalt.tools/#') === -1 && 
              h.indexOf('savefrom.net') === -1 && 
-             h.indexOf('snapinsta.app') === -1 && 
+             h.indexOf('snapinsta.to') === -1 && 
              h.indexOf('snaptik.app') === -1;
     });
 

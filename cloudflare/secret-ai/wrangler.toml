@@ -6,5 +6,5 @@ workers_dev = true
 [vars]
 GROQ_MODEL = "llama-3.3-70b-versatile"
 GROQ_VISION_MODEL = "llama-3.2-11b-vision-preview"
-ALLOWED_ORIGINS = "https://luisflmaximo.github.io/portefolio"
+ALLOWED_ORIGINS = "https://luisflmaximo.github.io"
 
