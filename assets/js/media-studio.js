@@ -1750,19 +1750,37 @@
         previewHtml = result.customHtml;
       }
 
+      if (result.customHtml) {
       return [
-        '<article class="result-item">',
-        '<div>',
-        '<div class="result-item__name">' + escapeHtml(result.name) + '</div>',
-        '<div class="result-item__meta">' + escapeHtml(result.meta || (result.blob ? formatBytes(result.blob.size) : 'Ligação externa')) + '</div>',
-        previewHtml,
-        '</div>',
-        '<div class="result-item__actions">',
+        '<article class="result-item result-item--block" style="padding: 1.2rem;">',
+        '<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.8rem; border-bottom: 1px solid var(--border-light); padding-bottom: 0.6rem; flex-wrap: wrap; gap: 0.5rem;">',
+        '  <div>',
+        '    <div class="result-item__name" style="font-size: 1.05rem;">' + escapeHtml(result.name) + '</div>',
+        '    <div class="result-item__meta">' + escapeHtml(result.meta || '') + '</div>',
+        '  </div>',
+        '  <div style="display: flex; gap: 0.5rem; align-items: center;">',
         actions,
+        '    <button type="button" class="result-delete btn btn--outline btn--sm" style="min-height:34px; padding:0 0.75rem; font-size:0.75rem;" data-remove-result="' + index + '">Limpar</button>',
+        '  </div>',
         '</div>',
-        '<button type="button" class="result-delete" data-remove-result="' + index + '">Remover</button>',
-        '</article>',
+        previewHtml,
+        '</article>'
       ].join('');
+    }
+
+    return [
+      '<article class="result-item">',
+      '<div>',
+      '<div class="result-item__name">' + escapeHtml(result.name) + '</div>',
+      '<div class="result-item__meta">' + escapeHtml(result.meta || (result.blob ? formatBytes(result.blob.size) : 'Ligação externa')) + '</div>',
+      previewHtml,
+      '</div>',
+      '<div class="result-item__actions">',
+      actions,
+      '</div>',
+      '<button type="button" class="result-delete" data-remove-result="' + index + '">Remover</button>',
+      '</article>',
+    ].join('')
     }).join('');
   }
 
@@ -3977,6 +3995,7 @@
   }
 
   function setActiveTool(toolId) {
+    clearResults();
     const tool = toolMap[toolId];
     if (!tool) return;
     const previousCount = state.files.length;
@@ -4947,6 +4966,41 @@
     addResults(results);
   }
 
+  function uploadFileWithProgress(file, onProgress) {
+    return new Promise(function (resolve, reject) {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', 'https://file.io');
+      
+      xhr.upload.addEventListener('progress', function (e) {
+        if (e.lengthComputable) {
+          const percent = (e.loaded / e.total) * 100;
+          onProgress(percent);
+        }
+      });
+      
+      xhr.onload = function () {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const res = JSON.parse(xhr.responseText);
+            resolve(res);
+          } catch (err) {
+            reject(new Error('Resposta inválida do servidor.'));
+          }
+        } else {
+          reject(new Error('Falha no upload (status ' + xhr.status + ')'));
+        }
+      };
+      
+      xhr.onerror = function () {
+        reject(new Error('Erro de rede.'));
+      };
+      
+      const formData = new FormData();
+      formData.append('file', file);
+      xhr.send(formData);
+    });
+  }
+
   async function processFileShare(files, options) {
     const results = [];
     
@@ -4954,20 +5008,12 @@
       const file = files[index];
       setProgress((index / files.length) * 100, 'A carregar ficheiro', file.name);
       
-      const formData = new FormData();
-      formData.append('file', file);
-      
       try {
-        const response = await fetch('https://file.io', {
-          method: 'POST',
-          body: formData
+        const data = await uploadFileWithProgress(file, function (percent) {
+          const overallPercent = ((index + (percent / 100)) / files.length) * 100;
+          setProgress(overallPercent, 'A carregar ficheiro (' + Math.round(percent) + '%)', file.name);
         });
         
-        if (!response.ok) {
-          throw new Error('Falha no upload (status ' + response.status + ')');
-        }
-        
-        const data = await response.json();
         if (data.success) {
           results.push(createExternalResult(
             file.name,
@@ -5310,6 +5356,54 @@
     // Initialize database with preloaded students
     const studentsDb = Object.assign({}, STUDENT_DATABASE);
     
+    // Helper to normalize text (accents and case)
+    function normalizeText(str) {
+      return str.normalize("NFD").replace(/[̀-ͯ]/g, "").toLowerCase();
+    }
+    
+    // Helper to extract grade or details cleanly
+    function extractGradeOrDetails(lineStr, studentNum, dbInfo) {
+      let details = lineStr.replace(studentNum, '').trim();
+      
+      if (dbInfo) {
+        if (dbInfo.classCode) {
+          details = details.replace(new RegExp('\\b' + dbInfo.classCode + '\\b', 'gi'), '');
+        }
+        if (dbInfo.name) {
+          const nameWords = normalizeText(dbInfo.name)
+            .split(/\\s+/)
+            .filter(function (w) { return w.length > 2; });
+            
+          nameWords.forEach(function (w) {
+            const regex = new RegExp('\\b' + w + '[a-zA-Z]*\\b', 'gi');
+            details = details.replace(regex, '');
+          });
+        }
+      }
+      details = details.replace(/\\s+/g, ' ').trim();
+      
+      const trailingMatch = details.match(/(\\b\\d{1,2}(?:[.,]\\d{1,2})?)$/) || details.match(/(\\d{1,2}(?:[.,]\\d{1,2})?)$/);
+      if (trailingMatch) {
+        const numStr = trailingMatch[1].replace(',', '.');
+        const val = parseFloat(numStr);
+        if (!isNaN(val) && val >= 0 && val <= 20) {
+          return numStr;
+        }
+      }
+      
+      const statusMatch = details.match(/([a-zA-ZÀ-ÿ]+)$/);
+      if (statusMatch) {
+        const status = statusMatch[1].trim();
+        const norm = status.toLowerCase();
+        const statuses = ['desistiu', 'faltou', 'reprovou', 'anulado', 'na', 'dispensado', 'excluido', 'presente'];
+        if (statuses.includes(norm)) {
+          return status;
+        }
+      }
+      
+      return details || 'Presente';
+    }
+    
     // 1. Build/update the student database from all files containing class codes (if any)
     for (let index = 0; index < files.length; index += 1) {
       const file = files[index];
@@ -5324,9 +5418,18 @@
         
         const lineMap = {};
         textContent.items.forEach(function (item) {
-          const y = Math.round(item.transform[5] * 2) / 2;
-          if (!lineMap[y]) lineMap[y] = [];
-          lineMap[y].push(item);
+          const y = item.transform[5];
+          let foundY = null;
+          Object.keys(lineMap).forEach(key => {
+            if (Math.abs(Number(key) - y) < 3.5) {
+              foundY = key;
+            }
+          });
+          if (foundY !== null) {
+            lineMap[foundY].push(item);
+          } else {
+            lineMap[y] = [item];
+          }
         });
         
         const ys = Object.keys(lineMap).map(Number).sort(function (a, b) { return b - a; });
@@ -5370,9 +5473,18 @@
         
         const lineMap = {};
         textContent.items.forEach(function (item) {
-          const y = Math.round(item.transform[5] * 2) / 2;
-          if (!lineMap[y]) lineMap[y] = [];
-          lineMap[y].push(item);
+          const y = item.transform[5];
+          let foundY = null;
+          Object.keys(lineMap).forEach(key => {
+            if (Math.abs(Number(key) - y) < 3.5) {
+              foundY = key;
+            }
+          });
+          if (foundY !== null) {
+            lineMap[foundY].push(item);
+          } else {
+            lineMap[y] = [item];
+          }
         });
         
         const ys = Object.keys(lineMap).map(Number).sort(function (a, b) { return b - a; });
@@ -5385,19 +5497,7 @@
             const studentNum = numMatch[1];
             const dbInfo = studentsDb[studentNum];
             if (dbInfo) {
-              let details = lineStr.replace(studentNum, '').trim();
-              
-              if (dbInfo.name) {
-                const cleanName = dbInfo.name.replace(/\s+/g, '');
-                const cleanDetails = details.replace(/\s+/g, '');
-                if (cleanDetails.includes(cleanName)) {
-                  details = details.replace(dbInfo.name, '').trim();
-                }
-              }
-              
-              details = details.replace(dbInfo.classCode, '').trim();
-              details = details.replace(/\s+/g, ' ').trim();
-              
+              const details = extractGradeOrDetails(lineStr, studentNum, dbInfo);
               if (details) {
                 if (!allMatches[studentNum]) {
                   allMatches[studentNum] = {
@@ -5537,17 +5637,16 @@
     ]);
   }
 
-  async function showSharedGrades(gradesUrl) {
+  async function showSharedGrades(binId) {
     try {
       setActiveTool('student-grades');
       setProgress(30, 'A carregar pauta partilhada...', 'A ler dados...');
       
-      const proxyUrl = 'https://api.allorigins.win/get?url=' + encodeURIComponent(gradesUrl);
-      const res = await fetch(proxyUrl);
+      const gradesUrl = 'https://extendsclass.com/api/json-storage/bin/' + binId;
+      const res = await fetch(gradesUrl);
       if (!res.ok) throw new Error('Não foi possível carregar a pauta.');
-      const json = await res.json();
+      const data = await res.json();
       
-      const data = JSON.parse(json.contents);
       if (!data || !data.detectedClasses || !data.grouped) {
         throw new Error('Dados de partilha inválidos.');
       }
@@ -5598,7 +5697,7 @@
         '<div style="font-size: 0.85rem; font-weight: 600; color: var(--text);">Painel de Notas por Turma (Partilhado)</div>',
         '<div style="display: flex; align-items: center; gap: 0.5rem;">',
         '<input type="text" id="' + searchId + '" placeholder="Pesquisar aluno..." oninput="window.filterGradesDashboard(this.value, \'' + dashboardId + '\')" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; border-radius: 6px; border: 1px solid var(--border); outline: none; max-width: 150px; background: var(--surface); color: var(--text);" />',
-        '<button type="button" class="btn btn--outline btn--sm" onclick="window.shareGradesDashboard(\'' + dashboardId + '\', this)" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; border-radius: 6px; font-weight: 600; cursor: pointer; border: 1px solid var(--accent-mid); color: var(--accent-mid); background: transparent; display: flex; align-items: center; gap: 0.3rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186.002-.003a2.25 2.25 0 0 1 3.218-3.003m-3.22 3.006L18 6.75m-10.783 6.34 10.783 4.16m-10.783-4.16.002.003a2.25 2.25 0 0 0 3.218 3.003M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Partilhar</button>',
+        '<button type="button" class="btn btn--outline btn--sm" onclick="window.shareGradesDashboard(\'db_placeholder\', this)" style="padding: 0.35rem 0.75rem; font-size: 0.78rem; border-radius: 6px; font-weight: 600; cursor: pointer; border: 1px solid var(--accent-mid); color: var(--accent-mid); background: transparent; display: flex; align-items: center; gap: 0.3rem;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width: 14px; height: 14px;"><path d="M7.217 10.907a2.25 2.25 0 1 0 0 2.186m0-2.186.002-.003a2.25 2.25 0 0 1 3.218-3.003m-3.22 3.006L18 6.75m-10.783 6.34 10.783 4.16m-10.783-4.16.002.003a2.25 2.25 0 0 0 3.218 3.003M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z"/></svg>Partilhar</button>',
         '</div>',
         '</div>',
         '<div class="grades-tabs">',
@@ -5610,6 +5709,8 @@
         '</div>'
       ].join('');
       
+      const finalHtml = customHtml.replace('db_placeholder', dashboardId);
+      
       registerGradesGlobalHelpers();
       
       setProgress(100, 'Pauta carregada com sucesso!', 'Pronto.');
@@ -5618,7 +5719,7 @@
         {
           name: 'Pauta_Partilhada.pdf',
           meta: 'Carregada a partir do link de partilha.',
-          customHtml: customHtml
+          customHtml: finalHtml
         }
       ]);
       
@@ -5740,21 +5841,16 @@
         const dataToShare = window.lastProcessedGrades;
         if (!dataToShare) throw new Error('Não há dados para partilhar.');
         
-        const blob = new Blob([JSON.stringify(dataToShare)], { type: 'application/json' });
-        const formData = new FormData();
-        formData.append('file', blob, 'grades_shared.json');
-        
-        const res = await fetch('https://tmpfiles.org/api/v1/upload', {
+        const res = await fetch('https://extendsclass.com/api/json-storage/bin', {
           method: 'POST',
-          body: formData
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(dataToShare)
         });
         if (!res.ok) throw new Error('Falha no upload do servidor de partilha.');
         const resJson = await res.json();
+        const binId = resJson.id;
         
-        const uploadUrl = resJson.data.url;
-        const dlUrl = uploadUrl.replace('https://tmpfiles.org/', 'https://tmpfiles.org/dl/');
-        
-        const shareUrl = window.location.origin + window.location.pathname + '?grades=' + encodeURIComponent(dlUrl);
+        const shareUrl = window.location.origin + window.location.pathname + '?grades=' + encodeURIComponent(binId);
         
         let popup = document.getElementById('grades-share-popup');
         if (!popup) {
@@ -5801,7 +5897,7 @@
     };
   }
 
-  function initLanguage() {
+function initLanguage() {
     const LOCALE_COPY = {
       pt: {
         burgerLabel: 'Abrir menu',
